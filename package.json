@@ -1,0 +1,27 @@
+{
+  "author": "Ben Pirt <ben@pirt.co.uk>",
+  "name": "backbone-postgresql",
+  "description": "A storage adapter for PostgreSQL when running Backbone.js on the server",
+  "version": "0.0.0",
+  "homepage": "http://github.com/bjpirt/backbone-postgresql",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/bjpirt/backbone-postgresql.git"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "./node_modules/mocha/bin/mocha test/*_test.js"
+  },
+  "dependencies": {
+    "backbone":"0.9.2",
+    "pg":"0.6.13"
+  },
+  "devDependencies": {
+    "mocha":"0.14.1",
+    "should":"0.6.0"
+  },
+  "optionalDependencies": {},
+  "engines": {
+    "node": "*"
+  }
+}
