@@ -18,7 +18,7 @@ Backbone = require('backbone');
 
     read: function(model, options){
       var self = this;
-      this.connect(function(err, client){
+      con.connect(function(err, client){
         client.query('SELECT * FROM ' + model.urlRoot + ' WHERE id = $1', [model.id], function(err, result) {
           if(err) return options.error(model, err);
           if(result.rows.length == 0) return options.error(model, "Not found")
@@ -28,45 +28,55 @@ Backbone = require('backbone');
     },
 
     create: function(model, options){
-      var keys = [];
-      var values = [];
-      var dollars = [];
-      var dollar_counter = 1;
-      for(var key in model.attributes){
-        keys.push(key);
-        values.push(model.attributes[key]);
-        dollars.push('$' + dollar_counter++);
-      }
-      this.connect(function(err, client){
-        client.query('INSERT INTO ' + model.urlRoot + ' (' + keys.join(',') + ') VALUES (' + dollars.join(',') + ') RETURNING *', values, function(err, result) {
-          if(err) return options.error(model, err);
-          options.success(result.rows[0]);
+      model.columns(function(columns){
+        var existing_keys = columns.map(function(attr){return attr.name});
+        var keys = [];
+        var values = [];
+        var dollars = [];
+        var dollar_counter = 1;
+        for(var key in model.attributes){
+          if(existing_keys.indexOf(key) != -1){
+            keys.push(key);
+            values.push(model.attributes[key]);
+            dollars.push('$' + dollar_counter++);
+          }
+        }
+        con.connect(function(err, client){
+          client.query('INSERT INTO ' + model.urlRoot + ' (' + keys.join(',') + ') VALUES (' + dollars.join(',') + ') RETURNING *', values, function(err, result) {
+            if(err) return options.error(model, err);
+            options.success(result.rows[0]);
+          });
         });
       });
     },
 
     update: function(model, options){
-      var keys = [];
-      var values = [];
-      var dollar_counter = 1;
-      for(var key in model.attributes){
-        if(key != 'id'){
-          keys.push(key + ' = $' + dollar_counter ++);
-          values.push(model.attributes[key]);
+      model.columns(function(columns){
+        var existing_keys = columns.map(function(attr){return attr.name});
+        var keys = [];
+        var values = [];
+        var dollar_counter = 1;
+        for(var key in model.attributes){
+          if(existing_keys.indexOf(key) != -1){
+            if(key != 'id'){
+              keys.push(key + ' = $' + dollar_counter ++);
+              values.push(model.attributes[key]);
+            }
+          }
         }
-      }
-      values.push(model.id);
-      this.connect(function(err, client){
-        client.query('UPDATE ' + model.urlRoot + ' SET ' + keys.join(', ') + ' WHERE id = $' + dollar_counter + ' RETURNING *', values, function(err, result) {
-          if(err) return options.error(model, err);
-          if(result.rows.length == 0) return options.error(model, "Not found")
-          options.success(result.rows[0]);
+        values.push(model.id);
+        con.connect(function(err, client){
+          client.query('UPDATE ' + model.urlRoot + ' SET ' + keys.join(', ') + ' WHERE id = $' + dollar_counter + ' RETURNING *', values, function(err, result) {
+            if(err) return options.error(model, err);
+            if(result.rows.length == 0) return options.error(model, "Not found")
+            options.success(result.rows[0]);
+          });
         });
       });
     },
 
     delete: function(model, options){
-      this.connect(function(err, client){
+      con.connect(function(err, client){
         client.query('DELETE FROM ' + model.urlRoot + ' WHERE id = $1 RETURNING id', [model.id], function(err, result) {
           if(err) return options.error(model, err);
           if(result.rows.length == 0) return options.error(model, "Not found")
@@ -76,13 +86,35 @@ Backbone = require('backbone');
     },
 
     read_collection: function(collection, options){
-      this.connect(function(err, client){
+      con.connect(function(err, client){
         client.query('SELECT * FROM ' + collection.urlRoot, [], function(err, result) {
           if(err) return options.error(model, err);
           options.success(result.rows);
           collection.trigger('fetched');
         });
       });
+    }
+  }
+
+  Backbone.Model.column_defs = {};
+
+  Backbone.Model.prototype.columns = function(cb){
+    if(!Backbone.Model.column_defs[this.urlRoot]){
+      con.connect(function(err, client){
+        client.query("SELECT a.attname as name, format_type(a.atttypid, a.atttypmod) as type, d.adsrc as default, a.attnotnull as not_null \
+                        FROM pg_attribute a\
+                        LEFT JOIN pg_attrdef d\
+                          ON  a.attrelid = d.adrelid\
+                          AND a.attnum = d.adnum\
+                        WHERE a.attrelid = 'test'::regclass AND a.attnum > 0\
+                        AND NOT a.attisdropped\
+                        ORDER BY a.attnum", [], function(err, result) {
+          Backbone.Model.column_defs[this.urlRoot] = result.rows;
+          cb(result.rows);
+        });
+      });
+    }else{
+      cb(Backbone.Model.column_defs[this.urlRoot]);
     }
   }
 

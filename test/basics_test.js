@@ -65,12 +65,23 @@ describe('Backbone PostgreSQL storage adaptor', function() {
         }});
       });
   
+      it('should not save invalid columns', function(done){
+        var test_model = new Test({one: 'one', two: 'two', bad: 'bad'});
+        test_model.save(null, {success: function(model){
+          var test_model2 = new Test({id: model.id});
+          test_model2.fetch({success: function(model2){
+            model2.attributes.should.eql({id: model.id, one: 'one', two: 'two'});
+            done();
+          }});
+        }});
+      });
+
       it('should raise an error if there is a problem saving', function(done){
-        var test_model = new Test({bad: 'bad'});
+        var test_model = new Test();
+        test_model.urlRoot = 'bad';
         test_model.save(null, {error: function(model, err){
           should.not.exist(model.id);
-          model.attributes.should.eql({bad: 'bad'});
-          err.message.should.eql('column "bad" of relation "test" does not exist');
+          err.message.should.eql('syntax error at or near ")"');
           done();
         }});
       });
@@ -99,12 +110,24 @@ describe('Backbone PostgreSQL storage adaptor', function() {
           });
         }});
       });
-  
+   
+      it('should not save invalid columns', function(done){
+        model.isNew().should.be.false;
+        model.set({one: 'new_one', bad: 'bad'});
+        model.save(null, {success: function(model){
+          var model2 = new Test({id: model.id});
+          model2.fetch({success: function(){
+            model2.attributes.should.eql({id: model.id, one: 'new_one', two: 'testtwo'});
+            done();
+          }});
+        }});
+      });
+
       it('should raise an error if there was a problem saving it', function(done){
         model.isNew().should.be.false;
-        model.set('bad', 'bad');
-        model.save(null, {error: function(thismodel, err){
-          err.message.should.eql('column "bad" of relation "test" does not exist');
+        model.urlRoot = 'bad';
+        model.save(null, {error: function(model, err){
+          err.message.should.eql('relation "bad" does not exist');
           done();
         }});
       });
