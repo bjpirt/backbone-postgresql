@@ -102,10 +102,10 @@ describe('Backbone PostgreSQL storage adaptor', function() {
         model.set('one', 'updated');
         model.save(null, {success: function(thismodel){
           model.attributes.should.eql({id: thismodel.id, one: 'updated', two: 'testtwo'});
-            client.query("SELECT * FROM test WHERE id = $1", [thismodel.id], function(err, result) {
+          client.query("SELECT * FROM test WHERE id = $1", [thismodel.id], function(err, result) {
             should.not.exist(err);
             result.rows.length.should.eql(1);
-            result.rows[0].should.eql(model.attributes);
+            result.rows[0].should.eql({id: thismodel.id, one: 'updated', two: 'testtwo', attributes: null});
             done();
           });
         }});
@@ -127,7 +127,7 @@ describe('Backbone PostgreSQL storage adaptor', function() {
         model.isNew().should.be.false;
         model.urlRoot = 'bad';
         model.save(null, {error: function(model, err){
-          err.message.should.eql('relation "bad" does not exist');
+          err.message.should.eql('syntax error at or near "WHERE"');
           done();
         }});
       });

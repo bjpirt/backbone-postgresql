@@ -18,18 +18,22 @@ Backbone = require('backbone');
 
     read: function(model, options){
       var self = this;
-      con.connect(function(err, client){
-        client.query('SELECT * FROM ' + model.urlRoot + ' WHERE id = $1', [model.id], function(err, result) {
-          if(err) return options.error(model, err);
-          if(result.rows.length == 0) return options.error(model, "Not found")
-          options.success(result.rows[0]);
+      model.load_attributes(function(){
+        con.connect(function(err, client){
+          var attr_query = (model.has_attributes() ? ', %# attributes as attributes' : '');
+          client.query('SELECT *' + attr_query + ' FROM ' + model.urlRoot + ' WHERE id = $1', [model.id], function(err, result) {
+            if(err) return options.error(model, err);
+            if(result.rows.length == 0) return options.error(model, "Not found");
+            options.success(model.merge_incoming_attributes(result.rows[0]));
+          });
         });
       });
     },
 
     create: function(model, options){
       model.columns(function(columns){
-        var existing_keys = columns.map(function(attr){return attr.name});
+        var existing_keys = columns ? columns.map(function(attr){return attr.name}) : [];
+        var attr_query = (model.has_attributes() ? ', %# attributes as attributes' : '');
         var keys = [];
         var values = [];
         var dollars = [];
@@ -42,9 +46,9 @@ Backbone = require('backbone');
           }
         }
         con.connect(function(err, client){
-          client.query('INSERT INTO ' + model.urlRoot + ' (' + keys.join(',') + ') VALUES (' + dollars.join(',') + ') RETURNING *', values, function(err, result) {
+          client.query('INSERT INTO ' + model.urlRoot + ' (' + keys.join(',') + ') VALUES (' + dollars.join(',') + ') RETURNING *' + attr_query, values, function(err, result) {
             if(err) return options.error(model, err);
-            options.success(result.rows[0]);
+            options.success(model.merge_incoming_attributes(result.rows[0]));
           });
         });
       });
@@ -53,6 +57,7 @@ Backbone = require('backbone');
     update: function(model, options){
       model.columns(function(columns){
         var existing_keys = columns.map(function(attr){return attr.name});
+        var attr_query = (model.has_attributes() ? ', %# attributes as attributes' : '');
         var keys = [];
         var values = [];
         var dollar_counter = 1;
@@ -66,10 +71,10 @@ Backbone = require('backbone');
         }
         values.push(model.id);
         con.connect(function(err, client){
-          client.query('UPDATE ' + model.urlRoot + ' SET ' + keys.join(', ') + ' WHERE id = $' + dollar_counter + ' RETURNING *', values, function(err, result) {
+          client.query('UPDATE ' + model.urlRoot + ' SET ' + keys.join(', ') + ' WHERE id = $' + dollar_counter + ' RETURNING *' + attr_query, values, function(err, result) {
             if(err) return options.error(model, err);
             if(result.rows.length == 0) return options.error(model, "Not found")
-            options.success(result.rows[0]);
+            options.success(model.merge_incoming_attributes(result.rows[0]));
           });
         });
       });
@@ -98,24 +103,53 @@ Backbone = require('backbone');
 
   Backbone.Model.column_defs = {};
 
-  Backbone.Model.prototype.columns = function(cb){
-    if(!Backbone.Model.column_defs[this.urlRoot]){
+  Backbone.Model.prototype.load_attributes = function(cb){
+    var self = this;
+    if(!(this.urlRoot in Backbone.Model.column_defs)){
       con.connect(function(err, client){
         client.query("SELECT a.attname as name, format_type(a.atttypid, a.atttypmod) as type, d.adsrc as default, a.attnotnull as not_null \
                         FROM pg_attribute a\
                         LEFT JOIN pg_attrdef d\
                           ON  a.attrelid = d.adrelid\
                           AND a.attnum = d.adnum\
-                        WHERE a.attrelid = 'test'::regclass AND a.attnum > 0\
+                        WHERE a.attrelid = '" + self.urlRoot + "'::regclass AND a.attnum > 0\
                         AND NOT a.attisdropped\
                         ORDER BY a.attnum", [], function(err, result) {
-          Backbone.Model.column_defs[this.urlRoot] = result.rows;
-          cb(result.rows);
+          if(err){
+            Backbone.Model.column_defs[self.urlRoot] = [];
+          }else{
+            Backbone.Model.column_defs[self.urlRoot] = result.rows || [];
+          }
+          cb();
         });
       });
     }else{
-      cb(Backbone.Model.column_defs[this.urlRoot]);
+      cb();
     }
+  }
+
+  Backbone.Model.prototype.columns = function(cb){
+    var self = this;
+    this.load_attributes(function(){
+      cb(Backbone.Model.column_defs[self.urlRoot]);
+    });
+  }
+
+  Backbone.Model.prototype.has_attributes = function(){
+    if(this.urlRoot in Backbone.Model.column_defs){
+      for(var attr_id in Backbone.Model.column_defs[this.urlRoot]){
+        if(Backbone.Model.column_defs[this.urlRoot][attr_id].name == 'attributes' && Backbone.Model.column_defs[this.urlRoot][attr_id].type == 'hstore') return true;
+      }
+    }
+    return false;
+  }
+
+  Backbone.Model.prototype.merge_incoming_attributes = function(incoming){
+    if(this.has_attributes()){
+      var hstore_attrs = incoming.attributes;
+      delete incoming.attributes;
+    }
+    return incoming;
   }
 
   Backbone.Model.prototype.sync = function(method, model, options){
