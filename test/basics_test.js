@@ -169,7 +169,7 @@ describe('Backbone PostgreSQL storage adaptor', function() {
   });
 
   describe('on collections', function(done){
-    describe("fetching a model", function(done) {
+    describe("fetching a collection", function(done) {
       it('should return the collection correctly', function(done) {
         var test_model1 = new Test({one: 'testone1', two: 'testtwo1'});
         var test_model2 = new Test({one: 'testone2', two: 'testtwo1'});
@@ -184,6 +184,44 @@ describe('Backbone PostgreSQL storage adaptor', function() {
           }});
         }});
       });
+
+      it('should filter the collection with a single condition', function(done) {
+        var test_model1 = new Test({one: 'testone1', two: 'testtwo1'});
+        var test_model2 = new Test({one: 'testone2', two: 'testtwo1'});
+        test_model1.save(null, {success: function(thismodel1){
+          test_model2.save(null, {success: function(thismodel2){
+            var collection = new TestCollection();
+            collection.fetch({
+              filter:["one = 'testone1'"],
+              success: function(){
+                collection.models.length.should.eql(1);
+                collection.map(function(x){return x.id}).should.eql([thismodel1.id]);
+                done();
+            }});
+          }});
+        }});
+      });
+
+      it('should filter the collection with multiple conditions', function(done) {
+        var test_model1 = new Test({one: 'testone1', two: 'testtwo1'});
+        var test_model2 = new Test({one: 'testone2', two: 'testtwo2'});
+        var test_model3 = new Test({one: 'testone1', two: 'testtwo3'});
+        test_model1.save(null, {success: function(thismodel1){
+          test_model2.save(null, {success: function(thismodel2){
+            test_model3.save(null, {success: function(thismodel3){
+              var collection = new TestCollection();
+              collection.fetch({
+                filter:["one = 'testone1'", "two = 'testtwo1'"],
+                success: function(){
+                  collection.models.length.should.eql(1);
+                  collection.map(function(x){return x.id}).should.eql([thismodel1.id]);
+                  done();
+              }});
+            }});
+          }});
+        }});
+      });
+
     });
   });
 });

@@ -111,7 +111,11 @@ Backbone = require('backbone');
 
     read_collection: function(collection, options){
       con.connect(function(err, client){
-        client.query('SELECT * FROM ' + collection.urlRoot, [], function(err, result) {
+        var where_clause = '';
+        if('filter' in options){
+          where_clause = ' WHERE ' + options.filter.join(' AND ');
+        }
+        client.query('SELECT * FROM ' + collection.urlRoot + where_clause, [], function(err, result) {
           if(err) return options.error(model, err);
           options.success(result.rows);
           collection.trigger('fetched');
