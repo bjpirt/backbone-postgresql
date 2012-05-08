@@ -37,13 +37,23 @@ Backbone = require('backbone');
         var keys = [];
         var values = [];
         var dollars = [];
+        var hstore_attrs = {};
         var dollar_counter = 1;
         for(var key in model.attributes){
           if(existing_keys.indexOf(key) != -1){
             keys.push(key);
             values.push(model.attributes[key]);
             dollars.push('$' + dollar_counter++);
+          }else{
+            if(model.has_attributes()){
+              hstore_attrs[key] = model.attributes[key];
+            }
           }
+        }
+        if(hstore_attrs !== {}){
+          keys.push('attributes');
+          dollars.push('$' + dollar_counter++);
+          values.push(con.toHstore(hstore_attrs));
         }
         con.connect(function(err, client){
           client.query('INSERT INTO ' + model.urlRoot + ' (' + keys.join(',') + ') VALUES (' + dollars.join(',') + ') RETURNING *' + attr_query, values, function(err, result) {
@@ -60,6 +70,7 @@ Backbone = require('backbone');
         var attr_query = (model.has_attributes() ? ', %# attributes as attributes' : '');
         var keys = [];
         var values = [];
+        var hstore_attrs = {};
         var dollar_counter = 1;
         for(var key in model.attributes){
           if(existing_keys.indexOf(key) != -1){
@@ -67,7 +78,15 @@ Backbone = require('backbone');
               keys.push(key + ' = $' + dollar_counter ++);
               values.push(model.attributes[key]);
             }
+          }else{
+            if(model.has_attributes()){
+              hstore_attrs[key] = model.attributes[key];
+            }
           }
+        }
+        if(hstore_attrs !== {}){
+          keys.push('attributes = $' + dollar_counter++);
+          values.push(con.toHstore(hstore_attrs));
         }
         values.push(model.id);
         con.connect(function(err, client){
@@ -98,7 +117,42 @@ Backbone = require('backbone');
           collection.trigger('fetched');
         });
       });
+    },
+
+    toHstore: function(object) {
+      var elements, key, val;
+      elements = (function() {
+        var _results;
+        _results = [];
+        for (key in object) {
+          val = object[key];
+          switch (typeof val) {
+            case "boolean":
+              val = (val ? this.quoteAndEscape("true") : this.quoteAndEscape("false"));
+              break;
+            case "object":
+              val = (val ? this.quoteAndEscape(JSON.stringify(val)) : "NULL");
+              break;
+            case "null":
+              val = "NULL";
+              break;
+            case "number":
+              val = (isFinite(val) ? this.quoteAndEscape(JSON.stringify(val)) : "NULL");
+              break;
+            default:
+              val = this.quoteAndEscape(val);
+          }
+          _results.push("\"" + key + "\"=>" + val);
+        }
+        return _results;
+      }).call(this);
+      return elements.join(", ");
+    },
+
+    quoteAndEscape: function(string) {
+      return "\"" + String(string).replace(/"/g, "\\\"") + "\"";
     }
+
   }
 
   Backbone.Model.column_defs = {};
@@ -148,6 +202,11 @@ Backbone = require('backbone');
     if(this.has_attributes()){
       var hstore_attrs = incoming.attributes;
       delete incoming.attributes;
+      if(hstore_attrs){
+        hstore_attrs.map(function(attr){
+          incoming[attr[0]] = incoming[attr[0]] || attr[1];
+        });
+      }
     }
     return incoming;
   }
