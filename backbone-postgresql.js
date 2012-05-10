@@ -1,4 +1,5 @@
-Backbone = require('backbone');
+Backbone = require('backbone'),
+_ = require('underscore');
 
 (function() {
   var con;
@@ -50,13 +51,17 @@ Backbone = require('backbone');
             }
           }
         }
-        if(hstore_attrs !== {}){
+        if(_.keys(hstore_attrs).length > 0){
           keys.push('attributes');
           dollars.push('$' + dollar_counter++);
           values.push(con.toHstore(hstore_attrs));
         }
         con.connect(function(err, client){
-          client.query('INSERT INTO ' + model.urlRoot + ' (' + keys.join(',') + ') VALUES (' + dollars.join(',') + ') RETURNING *' + attr_query, values, function(err, result) {
+          var value_str = ' DEFAULT VALUES';
+          if(_.keys(keys).length > 0){
+            value_str = ' (' + keys.join(',') + ') VALUES (' + dollars.join(',') + ')'
+          }
+          client.query('INSERT INTO ' + model.urlRoot + value_str + ' RETURNING *' + attr_query, values, function(err, result) {
             if(err) return options.error(model, err);
             options.success(model.merge_incoming_attributes(result.rows[0]));
           });
@@ -84,7 +89,7 @@ Backbone = require('backbone');
             }
           }
         }
-        if(hstore_attrs !== {}){
+        if(_.keys(hstore_attrs).length > 0){
           keys.push('attributes = $' + dollar_counter++);
           values.push(con.toHstore(hstore_attrs));
         }
@@ -115,8 +120,8 @@ Backbone = require('backbone');
         if('filter' in options){
           where_clause = ' WHERE ' + options.filter.join(' AND ');
         }
-        client.query('SELECT * FROM ' + collection.urlRoot + where_clause, [], function(err, result) {
-          if(err) return options.error(model, err);
+        client.query('SELECT * FROM ' + collection.urlRoot + where_clause + ' ORDER BY id', [], function(err, result) {
+          if(err) return options.error(collection, err);
           options.success(result.rows);
           collection.trigger('fetched');
         });

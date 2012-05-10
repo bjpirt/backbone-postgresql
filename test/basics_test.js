@@ -1,12 +1,13 @@
 var should      = require('should'),
-    Backbone    = require('../backbone-postgresql');
+    Backbone    = require('../backbone-postgresql'),
+    table_name  = 'test';
 
 var Test = Backbone.Model.extend({
-  urlRoot: 'test'
+  urlRoot: table_name
 });
 
 var TestCollection = Backbone.Collection.extend({
-  urlRoot: 'test',
+  urlRoot: table_name,
   model: Test
 });
 
@@ -22,19 +23,28 @@ var pg = require('pg').native;
 describe('Backbone PostgreSQL storage adaptor', function() {
   var client;
 
-  beforeEach(function(done){
+  before(function(done){
+    Backbone.Model.column_defs = {};
     pg.connect(conString, function(err, client_arg){
       client = client_arg;
-      client.query("TRUNCATE TABLE test CASCADE;", [], function(err, result) {
-        done();
+      client.query('DROP TABLE ' + table_name, function(err, result){
+        client.query('CREATE TABLE ' + table_name + '(id SERIAL, one VARCHAR(64), two VARCHAR(64))', function(err, result){
+          done();
+        });
       });
+    });
+  });
+
+  beforeEach(function(done){
+    client.query("TRUNCATE TABLE " + table_name + " CASCADE;", [], function(err, result) {
+      done();
     });
   });
 
   describe('on models', function(done){
     describe("fetching a model", function(done) {
       it('should return the model correctly if it exists', function(done) {
-        client.query("INSERT INTO test (id, one, two) VALUES (123, 'one', 'two')", [], function(err, result) {
+        client.query("INSERT INTO " + table_name + " (id, one, two) VALUES (123, 'one', 'two')", [], function(err, result) {
           var test_model = new Test({id: 123});
           test_model.fetch({success: function(model){
             model.id.should.eql(123);
@@ -103,10 +113,10 @@ describe('Backbone PostgreSQL storage adaptor', function() {
         model.set('one', 'updated');
         model.save(null, {success: function(thismodel){
           model.attributes.should.eql({id: thismodel.id, one: 'updated', two: 'testtwo'});
-          client.query("SELECT * FROM test WHERE id = $1", [thismodel.id], function(err, result) {
+          client.query("SELECT * FROM " + table_name + " WHERE id = $1", [thismodel.id], function(err, result) {
             should.not.exist(err);
             result.rows.length.should.eql(1);
-            result.rows[0].should.eql({id: thismodel.id, one: 'updated', two: 'testtwo', attributes: ''});
+            result.rows[0].should.eql({id: thismodel.id, one: 'updated', two: 'testtwo'});
             done();
           });
         }});
@@ -129,7 +139,7 @@ describe('Backbone PostgreSQL storage adaptor', function() {
         model.isNew().should.be.false;
         model.urlRoot = 'bad';
         model.save(null, {error: function(model, err){
-          err.message.should.eql('relation "bad" does not exist');
+          err.message.should.eql('syntax error at or near "WHERE"');
           done();
         }});
       });
@@ -150,7 +160,7 @@ describe('Backbone PostgreSQL storage adaptor', function() {
         var test_model = new Test({one: 'testone', two: 'testtwo'});
         test_model.save(null, {success: function(thismodel){
           thismodel.destroy({success: function(deleted_model){
-            client.query("SELECT * FROM test WHERE id = $1", [thismodel.id], function(err, result) {
+            client.query("SELECT * FROM " + table_name + " WHERE id = $1", [thismodel.id], function(err, result) {
               result.rows.length.should.eql(0);
               done();
             });
@@ -221,7 +231,6 @@ describe('Backbone PostgreSQL storage adaptor', function() {
           }});
         }});
       });
-
     });
   });
 });
