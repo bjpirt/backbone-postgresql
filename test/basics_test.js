@@ -28,7 +28,7 @@ describe('Backbone PostgreSQL storage adaptor', function() {
     pg.connect(conString, function(err, client_arg){
       client = client_arg;
       client.query('DROP TABLE ' + table_name, function(err, result){
-        client.query('CREATE TABLE ' + table_name + '(id SERIAL, one VARCHAR(64), two VARCHAR(64))', function(err, result){
+        client.query('CREATE TABLE ' + table_name + '(id SERIAL, one VARCHAR(64), two INTEGER)', function(err, result){
           done();
         });
       });
@@ -45,7 +45,7 @@ describe('Backbone PostgreSQL storage adaptor', function() {
 
     describe("fetching a model", function(done) {
       beforeEach(function(done){
-        client.query("INSERT INTO " + table_name + " (id, one, two) VALUES (123, 'one', 'two')", [], function(err, result) {
+        client.query("INSERT INTO " + table_name + " (id, one, two) VALUES (123, 'one', 2)", [], function(err, result) {
           done();
         });
       });
@@ -54,7 +54,7 @@ describe('Backbone PostgreSQL storage adaptor', function() {
         var test_model = new Test({id: 123});
         test_model.fetch({success: function(model){
           model.id.should.eql(123);
-          model.attributes.should.eql({id: 123, one: 'one', two: 'two'});
+          model.attributes.should.eql({id: 123, one: 'one', two: 2});
           done();
         }});
       });
@@ -70,12 +70,12 @@ describe('Backbone PostgreSQL storage adaptor', function() {
       it('should allow further filters to be placed on the fetch using an array', function(done){
         var test_model = new Test({id: 123});
         test_model.fetch({
-          filter: ["one = 'bad'", "two = 'two'"],
+          filter: ["one = 'bad'", "two = 2"],
           error: function(model, err){
             model.id.should.eql(123);
             err.should.eql("Not found");
             test_model.fetch({
-              filter: ["one = 'one'", "two = 'two'"],
+              filter: ["one = 'one'", "two = 2"],
               success: function(){
                 done();
               }
@@ -87,12 +87,12 @@ describe('Backbone PostgreSQL storage adaptor', function() {
       it('should allow further filters to be placed on the fetch using an object', function(done){
         var test_model = new Test({id: 123});
         test_model.fetch({
-          filter: {one: 'bad', two: 'two'},
+          filter: {one: 'bad', two: 2},
           error: function(model, err){
             model.id.should.eql(123);
             err.should.eql("Not found");
             test_model.fetch({
-              filter: {one: 'one', two: 'two'},
+              filter: {one: 'one', two: 2},
               success: function(){
                 done();
               }
@@ -104,22 +104,22 @@ describe('Backbone PostgreSQL storage adaptor', function() {
   
     describe('saving a new model', function(done){
       it('should update the attributes and id', function(done){
-        var test_model = new Test({one: 'testone', two: 'testtwo'});
+        var test_model = new Test({one: 'testone', two: 2});
         should.not.exist(test_model.id);
         test_model.save(null, {success: function(model){
           model.id.should.be.a('number');
-          model.attributes.should.eql({id: model.id, one: 'testone', two: 'testtwo'});
+          model.attributes.should.eql({id: model.id, one: 'testone', two: 2});
           done();
         }});
       });
   
       it('should not save invalid columns', function(done){
-        var test_model = new Test({one: 'one', two: 'two', bad: 'bad'});
+        var test_model = new Test({one: 'one', two: 2, bad: 'bad'});
         test_model.has_attributes = function(){return false;}
         test_model.save(null, {success: function(model){
           var test_model2 = new Test({id: model.id});
           test_model2.fetch({success: function(model2){
-            model2.attributes.should.eql({id: model.id, one: 'one', two: 'two'});
+            model2.attributes.should.eql({id: model.id, one: 'one', two: 2});
             done();
           }});
         }});
@@ -139,7 +139,7 @@ describe('Backbone PostgreSQL storage adaptor', function() {
     describe('saving an existing model', function(done){
       var model;
       beforeEach(function(done){
-        var test_model = new Test({one: 'testone', two: 'testtwo'});
+        var test_model = new Test({one: 'testone', two: 2});
         test_model.save(null, {success: function(thismodel){
           model = thismodel;
           done();
@@ -150,11 +150,11 @@ describe('Backbone PostgreSQL storage adaptor', function() {
         model.isNew().should.be.false;
         model.set('one', 'updated');
         model.save(null, {success: function(thismodel){
-          model.attributes.should.eql({id: thismodel.id, one: 'updated', two: 'testtwo'});
+          model.attributes.should.eql({id: thismodel.id, one: 'updated', two: 2});
           client.query("SELECT * FROM " + table_name + " WHERE id = $1", [thismodel.id], function(err, result) {
             should.not.exist(err);
             result.rows.length.should.eql(1);
-            result.rows[0].should.eql({id: thismodel.id, one: 'updated', two: 'testtwo'});
+            result.rows[0].should.eql({id: thismodel.id, one: 'updated', two: 2});
             done();
           });
         }});
@@ -167,7 +167,7 @@ describe('Backbone PostgreSQL storage adaptor', function() {
         model.save(null, {success: function(model){
           var model2 = new Test({id: model.id});
           model2.fetch({success: function(){
-            model2.attributes.should.eql({id: model.id, one: 'new_one', two: 'testtwo'});
+            model2.attributes.should.eql({id: model.id, one: 'new_one', two: 2});
             done();
           }});
         }});
@@ -195,7 +195,7 @@ describe('Backbone PostgreSQL storage adaptor', function() {
   
     describe('deleting a model', function(done){
       it('should delete it correctly', function(done){
-        var test_model = new Test({one: 'testone', two: 'testtwo'});
+        var test_model = new Test({one: 'testone', two: 2});
         test_model.save(null, {success: function(thismodel){
           thismodel.destroy({success: function(deleted_model){
             client.query("SELECT * FROM " + table_name + " WHERE id = $1", [thismodel.id], function(err, result) {
@@ -218,54 +218,47 @@ describe('Backbone PostgreSQL storage adaptor', function() {
 
   describe('on collections', function(done){
     describe("fetching a collection", function(done) {
-      it('should return the collection correctly', function(done) {
-        var test_model1 = new Test({one: 'testone1', two: 'testtwo1'});
-        var test_model2 = new Test({one: 'testone2', two: 'testtwo1'});
-        test_model1.save(null, {success: function(thismodel1){
-          test_model2.save(null, {success: function(thismodel2){
-            var collection = new TestCollection();
-            collection.fetch({success: function(){
-              collection.models.length.should.eql(2);
-              collection.map(function(x){return x.id}).sort().should.eql([thismodel1.id, thismodel2.id].sort());
-              done();
-            }});
+      var test_model1, test_model2, collection;
+
+      beforeEach(function(done){
+        collection = new TestCollection();
+        test_model1 = new Test({one: 'testone1', two: 2});
+        test_model2 = new Test({one: 'testone2', two: 2});
+        test_model1.save(null, {success: function(){
+          test_model2.save(null, {success: function(){
+            done();
           }});
+        }});
+      });
+
+      it('should return the collection correctly', function(done){
+        collection.fetch({success: function(){
+          collection.models.length.should.eql(2);
+          collection.map(function(x){return x.id}).sort().should.eql([test_model1.id, test_model2.id].sort());
+          done();
         }});
       });
 
       it('should filter the collection with a single condition', function(done) {
-        var test_model1 = new Test({one: 'testone1', two: 'testtwo1'});
-        var test_model2 = new Test({one: 'testone2', two: 'testtwo1'});
-        test_model1.save(null, {success: function(thismodel1){
-          test_model2.save(null, {success: function(thismodel2){
-            var collection = new TestCollection();
-            collection.fetch({
-              filter:["one = 'testone1'"],
-              success: function(){
-                collection.models.length.should.eql(1);
-                collection.map(function(x){return x.id}).should.eql([thismodel1.id]);
-                done();
-            }});
-          }});
+        collection.fetch({
+          filter:["one = 'testone1'"],
+          success: function(){
+            collection.models.length.should.eql(1);
+            collection.map(function(x){return x.id}).should.eql([test_model1.id]);
+            done();
         }});
       });
 
       it('should filter the collection with multiple conditions', function(done) {
-        var test_model1 = new Test({one: 'testone1', two: 'testtwo1'});
-        var test_model2 = new Test({one: 'testone2', two: 'testtwo2'});
-        var test_model3 = new Test({one: 'testone1', two: 'testtwo3'});
-        test_model1.save(null, {success: function(thismodel1){
-          test_model2.save(null, {success: function(thismodel2){
-            test_model3.save(null, {success: function(thismodel3){
-              var collection = new TestCollection();
-              collection.fetch({
-                filter:["one = 'testone1'", "two = 'testtwo1'"],
-                success: function(){
-                  collection.models.length.should.eql(1);
-                  collection.map(function(x){return x.id}).should.eql([thismodel1.id]);
-                  done();
-              }});
-            }});
+        var test_model3 = new Test({one: 'testone1', two: 3});
+        test_model3.save(null, {success: function(){
+          var collection = new TestCollection();
+          collection.fetch({
+            filter:["one = 'testone1'", "two = 2"],
+            success: function(){
+              collection.models.length.should.eql(1);
+              collection.map(function(x){return x.id}).should.eql([test_model1.id]);
+              done();
           }});
         }});
       });

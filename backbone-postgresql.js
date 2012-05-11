@@ -233,6 +233,7 @@ _ = require('underscore');
     var col_type = null;
     Backbone.Model.column_defs[this.urlRoot].map(function(col){ if(col.name === column_name) col_type = col.type });
     if(col_type === 'text' || !!col_type.match(/character varying/)) return "'" + value + "'";
+    return value;
   }
 
   Backbone.Model.prototype.sync = function(method, model, options){
