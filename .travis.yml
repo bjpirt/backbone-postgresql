@@ -1,0 +1,9 @@
+language: node_js
+node_js:
+  - 0.4
+  - 0.6
+before_script:
+  - psql -c 'create database bb_pg_test;' -U postgres
+  - psql bb_pg_test -c 'CREATE EXTENSION hstore' -U postgres
+  - psql -c "CREATE USER bb_pg WITH PASSWORD 'test'" -U postgres
+  - psql -c 'ALTER DATABASE bb_pg_test OWNER TO bb_pg' -U postgres
