@@ -22,15 +22,7 @@ _ = require('underscore');
       model.load_attributes(function(){
         con.connect(function(err, client){
           var attr_query = (model.has_attributes() ? ', %# attributes as attributes' : '');
-          var filter = '';
-          // Process the filter parameter to further filter the select
-          if('filter' in options){
-            if(options.filter instanceof Array){
-              filter = ' AND ' +  options.filter.join(' AND ');
-            }else if(options.filter instanceof Object){
-              filter = ' AND ' + _.keys(options.filter).map(function(i){ return i + ' = ' + model.quote(i, options.filter[i]) }).join(' AND ');
-            }
-          }
+          var filter = model.filter_query(options, ' AND ');
           client.query('SELECT *' + attr_query + ' FROM ' + model.urlRoot + ' WHERE id = $1' + filter, [model.id], function(err, result) {
             if(err) return options.error(model, err);
             if(result.rows.length == 0) return options.error(model, "Not found");
@@ -125,14 +117,14 @@ _ = require('underscore');
 
     read_collection: function(collection, options){
       con.connect(function(err, client){
-        var where_clause = '';
-        if('filter' in options){
-          where_clause = ' WHERE ' + options.filter.join(' AND ');
-        }
-        client.query('SELECT * FROM ' + collection.urlRoot + where_clause + ' ORDER BY id', [], function(err, result) {
-          if(err) return options.error(collection, err);
-          options.success(result.rows);
-          collection.trigger('fetched');
+        var model = new collection.model();
+        model.load_attributes(function(){
+          var where_clause = model.filter_query(options, ' WHERE ');
+          client.query('SELECT * FROM ' + collection.urlRoot + where_clause + ' ORDER BY id', [], function(err, result) {
+            if(err) return options.error(collection, err);
+            options.success(result.rows);
+            collection.trigger('fetched');
+          });
         });
       });
     },
@@ -234,6 +226,24 @@ _ = require('underscore');
     Backbone.Model.column_defs[this.urlRoot].map(function(col){ if(col.name === column_name) col_type = col.type });
     if(col_type === 'text' || !!col_type.match(/character varying/)) return "'" + value + "'";
     return value;
+  }
+
+  Backbone.Model.prototype.filter_query = function(options, prefix, cb){
+    if (!prefix) prefix = '';
+    // Process the filter parameter to further filter the select
+    var filter = '';
+    if('filter' in options){
+      if(options.filter instanceof Array){
+        filter = options.filter.join(' AND ');
+      }else if(options.filter instanceof Object){
+        var self = this;
+        filter = _.keys(options.filter).map(function(i){ return i + ' = ' + self.quote(i, options.filter[i]) }).join(' AND ');
+      }
+      if(filter === '') return '';
+      return prefix + filter;
+    }else{
+      return '';
+    }
   }
 
   Backbone.Model.prototype.sync = function(method, model, options){

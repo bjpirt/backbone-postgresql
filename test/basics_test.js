@@ -249,12 +249,26 @@ describe('Backbone PostgreSQL storage adaptor', function() {
         }});
       });
 
-      it('should filter the collection with multiple conditions', function(done) {
+      it('should filter the collection with multiple conditions in an array', function(done) {
         var test_model3 = new Test({one: 'testone1', two: 3});
         test_model3.save(null, {success: function(){
           var collection = new TestCollection();
           collection.fetch({
             filter:["one = 'testone1'", "two = 2"],
+            success: function(){
+              collection.models.length.should.eql(1);
+              collection.map(function(x){return x.id}).should.eql([test_model1.id]);
+              done();
+          }});
+        }});
+      });
+ 
+      it('should filter the collection with multiple conditions in an object', function(done) {
+        var test_model3 = new Test({one: 'testone1', two: 3});
+        test_model3.save(null, {success: function(){
+          var collection = new TestCollection();
+          collection.fetch({
+            filter: {one: 'testone1',two: 2},
             success: function(){
               collection.models.length.should.eql(1);
               collection.map(function(x){return x.id}).should.eql([test_model1.id]);
