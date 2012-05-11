@@ -42,25 +42,63 @@ describe('Backbone PostgreSQL storage adaptor', function() {
   });
 
   describe('on models', function(done){
+
     describe("fetching a model", function(done) {
-      it('should return the model correctly if it exists', function(done) {
+      beforeEach(function(done){
         client.query("INSERT INTO " + table_name + " (id, one, two) VALUES (123, 'one', 'two')", [], function(err, result) {
-          var test_model = new Test({id: 123});
-          test_model.fetch({success: function(model){
-            model.id.should.eql(123);
-            model.attributes.should.eql({id: 123, one: 'one', two: 'two'});
-            done();
-          }});
+          done();
         });
+      });
+
+      it('should return the model correctly if it exists', function(done) {
+        var test_model = new Test({id: 123});
+        test_model.fetch({success: function(model){
+          model.id.should.eql(123);
+          model.attributes.should.eql({id: 123, one: 'one', two: 'two'});
+          done();
+        }});
       });
   
       it('should return an error message if it does not exist', function(done){
-        var test_model = new Test({id: 123});
+        var test_model = new Test({id: 124});
         test_model.fetch({error: function(model, err){
-          model.id.should.eql(123);
           err.should.eql("Not found");
           done();
         }});
+      });
+
+      it('should allow further filters to be placed on the fetch using an array', function(done){
+        var test_model = new Test({id: 123});
+        test_model.fetch({
+          filter: ["one = 'bad'", "two = 'two'"],
+          error: function(model, err){
+            model.id.should.eql(123);
+            err.should.eql("Not found");
+            test_model.fetch({
+              filter: ["one = 'one'", "two = 'two'"],
+              success: function(){
+                done();
+              }
+            });
+          }
+        });
+      });
+ 
+      it('should allow further filters to be placed on the fetch using an object', function(done){
+        var test_model = new Test({id: 123});
+        test_model.fetch({
+          filter: {one: 'bad', two: 'two'},
+          error: function(model, err){
+            model.id.should.eql(123);
+            err.should.eql("Not found");
+            test_model.fetch({
+              filter: {one: 'one', two: 'two'},
+              success: function(){
+                done();
+              }
+            });
+          }
+        });
       });
     });
   

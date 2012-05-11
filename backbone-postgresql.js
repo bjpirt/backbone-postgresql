@@ -22,7 +22,16 @@ _ = require('underscore');
       model.load_attributes(function(){
         con.connect(function(err, client){
           var attr_query = (model.has_attributes() ? ', %# attributes as attributes' : '');
-          client.query('SELECT *' + attr_query + ' FROM ' + model.urlRoot + ' WHERE id = $1', [model.id], function(err, result) {
+          var filter = '';
+          // Process the filter parameter to further filter the select
+          if('filter' in options){
+            if(options.filter instanceof Array){
+              filter = ' AND ' +  options.filter.join(' AND ');
+            }else if(options.filter instanceof Object){
+              filter = ' AND ' + _.keys(options.filter).map(function(i){ return i + ' = ' + model.quote(i, options.filter[i]) }).join(' AND ');
+            }
+          }
+          client.query('SELECT *' + attr_query + ' FROM ' + model.urlRoot + ' WHERE id = $1' + filter, [model.id], function(err, result) {
             if(err) return options.error(model, err);
             if(result.rows.length == 0) return options.error(model, "Not found");
             options.success(model.merge_incoming_attributes(result.rows[0]));
@@ -218,6 +227,12 @@ _ = require('underscore');
       }
     }
     return incoming;
+  }
+
+  Backbone.Model.prototype.quote = function(column_name, value){
+    var col_type = null;
+    Backbone.Model.column_defs[this.urlRoot].map(function(col){ if(col.name === column_name) col_type = col.type });
+    if(col_type === 'text' || !!col_type.match(/character varying/)) return "'" + value + "'";
   }
 
   Backbone.Model.prototype.sync = function(method, model, options){
