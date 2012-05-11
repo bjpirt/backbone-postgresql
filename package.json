@@ -4,6 +4,7 @@
   "description": "A storage adapter for PostgreSQL when running Backbone.js on the server",
   "version": "0.0.0",
   "homepage": "http://github.com/bjpirt/backbone-postgresql",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git://github.com/bjpirt/backbone-postgresql.git"
