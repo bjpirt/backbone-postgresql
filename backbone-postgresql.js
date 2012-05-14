@@ -20,7 +20,7 @@ _ = require('underscore');
         con.connect(function(err, client){
           var attr_query = (model.has_attributes() ? ', %# attributes as attributes' : '');
           var filter = model.filter_query(options, ' AND ');
-          client.query('SELECT *' + attr_query + ' FROM ' + model.urlRoot + ' WHERE id = $1' + filter, [model.id], function(err, result) {
+          client.query('SELECT *' + attr_query + ' FROM ' + model.table_name() + ' WHERE id = $1' + filter, [model.id], function(err, result) {
             if(err) return options.error(model, err);
             if(result.rows.length == 0) return options.error(model, new Error("Not found"));
             options.success(model.merge_incoming_attributes(result.rows[0]));
@@ -59,7 +59,7 @@ _ = require('underscore');
           if(_.keys(keys).length > 0){
             value_str = ' (' + keys.join(',') + ') VALUES (' + dollars.join(',') + ')'
           }
-          client.query('INSERT INTO ' + model.urlRoot + value_str + ' RETURNING *' + attr_query, values, function(err, result) {
+          client.query('INSERT INTO ' + model.table_name() + value_str + ' RETURNING *' + attr_query, values, function(err, result) {
             if(err) return options.error(model, err);
             options.success(model.merge_incoming_attributes(result.rows[0]));
           });
@@ -93,7 +93,7 @@ _ = require('underscore');
         }
         values.push(model.id);
         con.connect(function(err, client){
-          client.query('UPDATE ' + model.urlRoot + ' SET ' + keys.join(', ') + ' WHERE id = $' + dollar_counter + ' RETURNING *' + attr_query, values, function(err, result) {
+          client.query('UPDATE ' + model.table_name() + ' SET ' + keys.join(', ') + ' WHERE id = $' + dollar_counter + ' RETURNING *' + attr_query, values, function(err, result) {
             if(err) return options.error(model, err);
             if(result.rows.length == 0) return options.error(model, new Error("Not found"));
             options.success(model.merge_incoming_attributes(result.rows[0]));
@@ -104,7 +104,7 @@ _ = require('underscore');
 
     delete: function(model, options){
       con.connect(function(err, client){
-        client.query('DELETE FROM ' + model.urlRoot + ' WHERE id = $1 RETURNING id', [model.id], function(err, result) {
+        client.query('DELETE FROM ' + model.table_name() + ' WHERE id = $1 RETURNING id', [model.id], function(err, result) {
           if(err) return options.error(model, err);
           if(result.rows.length == 0) return options.error(model, new Error("Not found"));
           options.success();
@@ -117,7 +117,7 @@ _ = require('underscore');
         var model = new collection.model();
         model.load_attributes(function(){
           var where_clause = model.filter_query(options, ' WHERE ');
-          client.query('SELECT * FROM ' + collection.urlRoot + where_clause + ' ORDER BY id', [], function(err, result) {
+          client.query('SELECT * FROM ' + collection.table_name() + where_clause + ' ORDER BY id', [], function(err, result) {
             if(err) return options.error(collection, err);
             options.success(result.rows);
             collection.trigger('fetched');
@@ -166,20 +166,20 @@ _ = require('underscore');
 
   Backbone.Model.prototype.load_attributes = function(cb){
     var self = this;
-    if(!(this.urlRoot in Backbone.Model.column_defs)){
+    if(!(this.table_name() in Backbone.Model.column_defs)){
       con.connect(function(err, client){
         client.query("SELECT a.attname as name, format_type(a.atttypid, a.atttypmod) as type, d.adsrc as default, a.attnotnull as not_null \
                         FROM pg_attribute a\
                         LEFT JOIN pg_attrdef d\
                           ON  a.attrelid = d.adrelid\
                           AND a.attnum = d.adnum\
-                        WHERE a.attrelid = '" + self.urlRoot + "'::regclass AND a.attnum > 0\
+                        WHERE a.attrelid = '" + self.table_name() + "'::regclass AND a.attnum > 0\
                         AND NOT a.attisdropped\
                         ORDER BY a.attnum", [], function(err, result) {
           if(err){
-            Backbone.Model.column_defs[self.urlRoot] = [];
+            Backbone.Model.column_defs[self.table_name()] = [];
           }else{
-            Backbone.Model.column_defs[self.urlRoot] = result.rows || [];
+            Backbone.Model.column_defs[self.table_name()] = result.rows || [];
           }
           cb();
         });
@@ -189,17 +189,22 @@ _ = require('underscore');
     }
   }
 
+  Backbone.Model.prototype.table_name = function(){
+    var split_url = this.urlRoot.split('/');
+    return split_url[split_url.length - 1];
+  }
+
   Backbone.Model.prototype.columns = function(cb){
     var self = this;
     this.load_attributes(function(){
-      cb(Backbone.Model.column_defs[self.urlRoot]);
+      cb(Backbone.Model.column_defs[self.table_name()]);
     });
   }
 
   Backbone.Model.prototype.has_attributes = function(){
-    if(this.urlRoot in Backbone.Model.column_defs){
-      for(var attr_id in Backbone.Model.column_defs[this.urlRoot]){
-        if(Backbone.Model.column_defs[this.urlRoot][attr_id].name == 'attributes' && Backbone.Model.column_defs[this.urlRoot][attr_id].type == 'hstore') return true;
+    if(this.table_name() in Backbone.Model.column_defs){
+      for(var attr_id in Backbone.Model.column_defs[this.table_name()]){
+        if(Backbone.Model.column_defs[this.table_name()][attr_id].name == 'attributes' && Backbone.Model.column_defs[this.table_name()][attr_id].type == 'hstore') return true;
       }
     }
     return false;
@@ -220,7 +225,7 @@ _ = require('underscore');
 
   Backbone.Model.prototype.quote = function(column_name, value){
     var col_type = null;
-    Backbone.Model.column_defs[this.urlRoot].map(function(col){ if(col.name === column_name) col_type = col.type });
+    Backbone.Model.column_defs[this.table_name()].map(function(col){ if(col.name === column_name) col_type = col.type });
     if(col_type === 'text' || !!col_type.match(/character varying/)) return "'" + value + "'";
     return value;
   }
@@ -241,6 +246,11 @@ _ = require('underscore');
     }else{
       return '';
     }
+  }
+
+  Backbone.Collection.prototype.table_name = function(){
+    var split_url = this.urlRoot.split('/');
+    return split_url[split_url.length - 1];
   }
 
   Backbone.Model.prototype.sync = function(method, model, options){

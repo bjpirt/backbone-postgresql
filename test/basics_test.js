@@ -3,11 +3,11 @@ var should      = require('should'),
     table_name  = 'test';
 
 var Test = Backbone.Model.extend({
-  urlRoot: table_name
+  urlRoot: '/' + table_name
 });
 
 var TestCollection = Backbone.Collection.extend({
-  urlRoot: table_name,
+  urlRoot: '/' + table_name,
   model: Test
 });
 
@@ -123,7 +123,7 @@ describe('Backbone PostgreSQL storage adaptor', function() {
 
       it('should raise an error if there is a problem saving', function(done){
         var test_model = new Test();
-        test_model.urlRoot = 'bad';
+        test_model.urlRoot = '/bad';
         test_model.save(null, {error: function(model, err){
           should.not.exist(model.id);
           err.message.should.eql('relation "bad" does not exist');

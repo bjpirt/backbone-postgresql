@@ -25,11 +25,11 @@ This won't really run as one script because otherwise it would all have to be ne
     
     // Define our models and collections. We're using the urlRoot parameter to define the table name
     var Badger = Backbone.Model.extend({
-      urlRoot: 'badgers'
+      urlRoot: '/badgers'
     });
     
     var BadgerCollection = Backbone.Collection.extend({
-      urlRoot: 'badgers',
+      urlRoot: '/badgers',
       model: Badger
     });
     

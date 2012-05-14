@@ -3,11 +3,11 @@ var should      = require('should'),
     table_name  = 'test_hstore';
 
 var Test = Backbone.Model.extend({
-  urlRoot: table_name
+  urlRoot: '/' + table_name
 });
 
 var TestCollection = Backbone.Collection.extend({
-  urlRoot: table_name,
+  urlRoot: '/' + table_name,
   model: Test
 });
 
