@@ -116,6 +116,7 @@ _ = require('underscore');
       con.connect(function(err, client){
         var model = new collection.model();
         model.load_attributes(function(){
+          options.relation_filter = collection.filter_params();
           var where_clause = model.filter_query(options, ' WHERE ');
           client.query('SELECT * FROM ' + collection.table_name() + where_clause + ' ORDER BY id', [], function(err, result) {
             if(err) return options.error(collection, err);
@@ -231,26 +232,42 @@ _ = require('underscore');
   }
 
   Backbone.Model.prototype.filter_query = function(options, prefix, cb){
+    var self = this;
+    var conds = [];
     if (!prefix) prefix = '';
     // Process the filter parameter to further filter the select
-    var filter = '';
     if('filter' in options){
       if(options.filter instanceof Array){
-        filter = options.filter.join(' AND ');
+        conds = options.filter;
       }else if(options.filter instanceof Object){
-        var self = this;
-        filter = _.keys(options.filter).map(function(i){ return i + ' = ' + self.quote(i, options.filter[i]) }).join(' AND ');
+        conds = _.keys(options.filter).map(function(i){ return i + ' = ' + self.quote(i, options.filter[i]) });
       }
-      if(filter === '') return '';
-      return prefix + filter;
-    }else{
-      return '';
     }
+    if('relation_filter' in options){
+      conds = conds.concat(_.keys(options.relation_filter).map(function(i){ return i + ' = ' + self.quote(i, options.relation_filter[i]) }));
+    }
+    if(conds.length == 0) return '';
+    return prefix + conds.join(' AND ');
+  }
+
+  var old_fn = Backbone.Collection.prototype._onModelEvent;
+  Backbone.Collection.prototype._onModelEvent = function(ev, model, collection, options) {
+    if (ev == 'add') _.extend(model.attributes, collection.filter_params());
+    old_fn(ev, model, collection, options);
   }
 
   Backbone.Collection.prototype.table_name = function(){
-    var split_url = this.urlRoot.split('/');
+    var split_url = _.reject(this.urlRoot.split('/'), function(elem){ return elem === ''});
     return split_url[split_url.length - 1];
+  }
+
+  Backbone.Collection.prototype.filter_params = function(){
+    var split_url = _.reject(this.urlRoot.split('/'), function(elem){ return elem === ''});
+    var res = {};
+    if(split_url.length == 3){
+      res[split_url[0] + '_id'] = parseInt(split_url[1]);
+    }
+    return res;
   }
 
   Backbone.Model.prototype.sync = function(method, model, options){
