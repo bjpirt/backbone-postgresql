@@ -11,21 +11,14 @@ var TestCollection = Backbone.Collection.extend({
   model: Test
 });
 
-Backbone.pg_connector.config = {
-  "name":"bb_pg_test",
-  "user":"bb_pg",
-  "password":"test"
-};
-
-var conString = 'pg://' + Backbone.pg_connector.config.user + ':' + Backbone.pg_connector.config.password + '@localhost/' + Backbone.pg_connector.config.name
-var pg = require('pg').native;
+Backbone.pg_connector.config = { db: 'pg://bb_pg:test@localhost/bb_pg_test' };
 
 describe('Backbone PostgreSQL storage adaptor', function() {
   var client;
 
   before(function(done){
     Backbone.Model.column_defs = {};
-    pg.connect(conString, function(err, client_arg){
+    Backbone.pg_connector.connect(function(err, client_arg){
       client = client_arg;
       client.query('DROP TABLE ' + table_name, function(err, result){
         client.query('CREATE TABLE ' + table_name + '(id SERIAL, one VARCHAR(64), two INTEGER)', function(err, result){

@@ -9,12 +9,9 @@ _ = require('underscore');
     config: undefined,
 
     connect: function(cb){
-      if (this.config === undefined) throw new Error("You must define the config");
-      var self = this;
-      this.config.host = this.config.host || 'localhost'
-      var conString = 'pg://' + this.config.user + ':' + this.config.password + '@' + this.config.host + '/' + this.config.name
-      var pg = require('pg').native;
-      pg.connect(conString, cb);
+      if (this.config.db === undefined) throw new Error("You must define the config");
+      this.pg = this.pg || require('pg').native;
+      this.pg.connect(this.config.db, cb);
     },
 
     read: function(model, options){
