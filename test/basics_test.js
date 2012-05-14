@@ -55,7 +55,8 @@ describe('Backbone PostgreSQL storage adaptor', function() {
       it('should return an error message if it does not exist', function(done){
         var test_model = new Test({id: 124});
         test_model.fetch({error: function(model, err){
-          err.should.eql("Not found");
+          err.should.be.an.instanceof(Error)
+          err.message.should.eql("Not found");
           done();
         }});
       });
@@ -66,7 +67,8 @@ describe('Backbone PostgreSQL storage adaptor', function() {
           filter: ["one = 'bad'", "two = 2"],
           error: function(model, err){
             model.id.should.eql(123);
-            err.should.eql("Not found");
+            err.should.be.an.instanceof(Error)
+            err.message.should.eql("Not found");
             test_model.fetch({
               filter: ["one = 'one'", "two = 2"],
               success: function(){
@@ -83,7 +85,8 @@ describe('Backbone PostgreSQL storage adaptor', function() {
           filter: {one: 'bad', two: 2},
           error: function(model, err){
             model.id.should.eql(123);
-            err.should.eql("Not found");
+            err.should.be.an.instanceof(Error)
+            err.message.should.eql("Not found");
             test_model.fetch({
               filter: {one: 'one', two: 2},
               success: function(){
@@ -180,7 +183,8 @@ describe('Backbone PostgreSQL storage adaptor', function() {
         test_model.isNew = function(){return false;}
         test_model.set('one', 'updated');
         test_model.save(null, {error: function(deleted_model, err){
-          err.should.eql("Not found");
+          err.should.be.an.instanceof(Error)
+          err.message.should.eql("Not found");
           done();
         }});
       });
@@ -202,7 +206,8 @@ describe('Backbone PostgreSQL storage adaptor', function() {
       it("should raise an error if it didn't exist", function(done){
         var test_model = new Test({id: 123});
         test_model.destroy({error: function(deleted_model, err){
-          err.should.eql("Not found");
+          err.should.be.an.instanceof(Error)
+          err.message.should.eql("Not found");
           done();
         }});
       });

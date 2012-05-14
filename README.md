@@ -65,11 +65,13 @@ This won't really run as one script because otherwise it would all have to be ne
         console.log("Successfully retrieved badger: " + model.attributes.name + " (Age: " + model.attributes.age + ")");
       },
       error: function(model, err){
+        console.log(err instanceof Error);
+        console.log(err.message); // "Not found"
         console.log('Error retrieving badger');
       }
     });
     
-    // If it can't be found, the error callback will be fired and the "err" parameter will be set to "Not found"
+    // If it can't be found, the error callback will be fired and the "err" parameter will return a "Not found" error
     
     // If you want to put some constraints on what you're fetching (e.g. if you want to fetch a resource, but wanted to make sure it was owned by the correct person)
     // you can add a filter parameter like so:

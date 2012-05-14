@@ -22,7 +22,7 @@ _ = require('underscore');
           var filter = model.filter_query(options, ' AND ');
           client.query('SELECT *' + attr_query + ' FROM ' + model.urlRoot + ' WHERE id = $1' + filter, [model.id], function(err, result) {
             if(err) return options.error(model, err);
-            if(result.rows.length == 0) return options.error(model, "Not found");
+            if(result.rows.length == 0) return options.error(model, new Error("Not found"));
             options.success(model.merge_incoming_attributes(result.rows[0]));
           });
         });
@@ -95,7 +95,7 @@ _ = require('underscore');
         con.connect(function(err, client){
           client.query('UPDATE ' + model.urlRoot + ' SET ' + keys.join(', ') + ' WHERE id = $' + dollar_counter + ' RETURNING *' + attr_query, values, function(err, result) {
             if(err) return options.error(model, err);
-            if(result.rows.length == 0) return options.error(model, "Not found")
+            if(result.rows.length == 0) return options.error(model, new Error("Not found"));
             options.success(model.merge_incoming_attributes(result.rows[0]));
           });
         });
@@ -106,7 +106,7 @@ _ = require('underscore');
       con.connect(function(err, client){
         client.query('DELETE FROM ' + model.urlRoot + ' WHERE id = $1 RETURNING id', [model.id], function(err, result) {
           if(err) return options.error(model, err);
-          if(result.rows.length == 0) return options.error(model, "Not found")
+          if(result.rows.length == 0) return options.error(model, new Error("Not found"));
           options.success();
         });
       });
