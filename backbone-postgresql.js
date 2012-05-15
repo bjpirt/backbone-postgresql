@@ -19,6 +19,7 @@ _ = require('underscore');
       model.load_attributes(function(){
         con.connect(function(err, client){
           var attr_query = (model.has_attributes() ? ', %# attributes as attributes' : '');
+          options.relation_conds = model.relation_conds();
           var filter = model.filter_query(options, ' AND ');
           client.query('SELECT *' + attr_query + ' FROM ' + model.table_name() + ' WHERE id = $1' + filter, [model.id], function(err, result) {
             if(err) return options.error(model, err);
@@ -38,6 +39,7 @@ _ = require('underscore');
         var dollars = [];
         var hstore_attrs = {};
         var dollar_counter = 1;
+        _.extend(model.attributes, model.relation_conds());
         for(var key in model.attributes){
           if(existing_keys.indexOf(key) != -1){
             keys.push(key);
@@ -104,7 +106,9 @@ _ = require('underscore');
 
     delete: function(model, options){
       con.connect(function(err, client){
-        client.query('DELETE FROM ' + model.table_name() + ' WHERE id = $1 RETURNING id', [model.id], function(err, result) {
+        options.relation_conds = model.relation_conds()
+        var where_clause = model.filter_query(options, ' AND ')
+        client.query('DELETE FROM ' + model.table_name() + ' WHERE id = $1' + where_clause + ' RETURNING id', [model.id], function(err, result) {
           if(err) return options.error(model, err);
           if(result.rows.length == 0) return options.error(model, new Error("Not found"));
           options.success();
@@ -116,7 +120,7 @@ _ = require('underscore');
       con.connect(function(err, client){
         var model = new collection.model();
         model.load_attributes(function(){
-          options.relation_filter = collection.filter_params();
+          options.relation_conds = collection.relation_conds();
           var where_clause = model.filter_query(options, ' WHERE ');
           client.query('SELECT * FROM ' + collection.table_name() + where_clause + ' ORDER BY id', [], function(err, result) {
             if(err) return options.error(collection, err);
@@ -243,8 +247,8 @@ _ = require('underscore');
         conds = _.keys(options.filter).map(function(i){ return i + ' = ' + self.quote(i, options.filter[i]) });
       }
     }
-    if('relation_filter' in options){
-      conds = conds.concat(_.keys(options.relation_filter).map(function(i){ return i + ' = ' + self.quote(i, options.relation_filter[i]) }));
+    if('relation_conds' in options){
+      conds = conds.concat(_.keys(options.relation_conds).map(function(i){ return i + ' = ' + self.quote(i, options.relation_conds[i]) }));
     }
     if(conds.length == 0) return '';
     return prefix + conds.join(' AND ');
@@ -252,7 +256,7 @@ _ = require('underscore');
 
   var old_fn = Backbone.Collection.prototype._onModelEvent;
   Backbone.Collection.prototype._onModelEvent = function(ev, model, collection, options) {
-    if (ev == 'add') _.extend(model.attributes, collection.filter_params());
+    if (ev == 'add') _.extend(model.attributes, collection.relation_conds());
     old_fn(ev, model, collection, options);
   }
 
@@ -261,7 +265,7 @@ _ = require('underscore');
     return split_url[split_url.length - 1];
   }
 
-  Backbone.Collection.prototype.filter_params = function(){
+  Backbone.Collection.prototype.relation_conds = function(){
     var split_url = _.reject(this.urlRoot.split('/'), function(elem){ return elem === ''});
     var res = {};
     if(split_url.length == 3){
@@ -269,6 +273,7 @@ _ = require('underscore');
     }
     return res;
   }
+  Backbone.Model.prototype.relation_conds = Backbone.Collection.prototype.relation_conds;
 
   Backbone.Model.prototype.sync = function(method, model, options){
     return con[method](model, options);

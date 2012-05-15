@@ -211,6 +211,44 @@ describe('Backbone PostgreSQL storage adaptor', function() {
           done();
         }});
       });
+ 
+      it('should allow further filters to be placed on the destroy using an object', function(done){
+        var test_model = new Test({one: 'testone', two: 2});
+        test_model.save(null, {success: function(){
+          test_model.destroy({ filter: {two: 3},
+            error: function(model, err){
+              err.message.should.eql('Not found');
+              test_model.destroy({ filter: {two: 2},
+                success: function(deleted_model){
+                  client.query("SELECT * FROM " + table_name + " WHERE id = $1", [test_model.id], function(err, result) {
+                    result.rows.length.should.eql(0);
+                    done();
+                  });
+                }
+              });
+            }
+          });
+        }});
+      });
+ 
+      it('should allow further filters to be placed on the destroy using an array', function(done){
+        var test_model = new Test({one: 'testone', two: 2});
+        test_model.save(null, {success: function(){
+          test_model.destroy({ filter: ["two = 3"],
+            error: function(model, err){
+              err.message.should.eql('Not found');
+              test_model.destroy({ filter: ["two = 2"],
+                success: function(deleted_model){
+                  client.query("SELECT * FROM " + table_name + " WHERE id = $1", [test_model.id], function(err, result) {
+                    result.rows.length.should.eql(0);
+                    done();
+                  });
+                }
+              });
+            }
+          });
+        }});
+      });
     });
   });
 

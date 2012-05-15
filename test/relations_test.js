@@ -99,7 +99,50 @@ describe('Backbone PostgreSQL storage adaptor relations', function() {
       });
     });
 
-  });
+    describe('using a model with a nested urlRoot', function(){
+      it('should be saved with the correct foreign key', function(done){
+        var model = new Test();
+        model.urlRoot = '/reltest/2/' + table_name;
+        should.not.exist(model.attributes.reltest_id);
+        model.save(null, {success: function(){
+          model.attributes.reltest_id.should.eql(2);
+          model.url().should.eql('/reltest/2/' + table_name + '/' + model.id);
+          done();
+        }});
+      });
 
+      it('should be scoped properly when fetching the model', function(done){
+        test1 = new Test({reltest_id: 1, one: 'a'});
+        test1.save(null, {success: function(){
+          var model = new Test({id: test1.id});
+          model.urlRoot = '/reltest/1/' + table_name;
+          model.fetch({success: function(){
+            model.id.should.eql(test1.id);
+            model.urlRoot = '/reltest/2/' + table_name; 
+            model.fetch({error: function(model, err){
+              err.message.should.eql('Not found');
+              done();
+            }});
+          }});
+        }});
+      });
+   
+      it('should be scoped properly when destroying the model', function(done){
+        test1 = new Test({reltest_id: 1, one: 'a'});
+        test1.save(null, {success: function(){
+          var model = new Test({id: test1.id});
+          model.urlRoot = '/reltest/2/' + table_name;
+	  model.destroy({error: function(m, err){
+	    err.message.should.eql('Not found');
+            model.urlRoot = '/reltest/1/' + table_name;
+	    model.destroy({success: function(){
+              done();
+	    }});
+	  }});
+        }});
+      });
+
+    });
+  });
 });
 
