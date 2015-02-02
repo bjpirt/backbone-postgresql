@@ -3,6 +3,8 @@ backbone-postgresql
 
 [![Build Status](https://secure.travis-ci.org/bjpirt/backbone-postgresql.png)](http://travis-ci.org/bjpirt/backbone-postgresql)
 
+Note: I'm afraid this library is no longer being maintained. If you'd like to take it over please get in touch.
+
 This is a sync library for server-side Backbone.js running on node.js that enables it to store data in PostgreSQL. It uses a hybrid approach to the schema whereby you can mix up old-school columns with all of their associated relational integrity and an hstore column that allows you to store arbitrary attributes with no schema changes.
 
 See this article for some more details about hstore, and also the PostgreSQL docs here. To set up your database with the hstore extension you need to log into postgres as an admin and use the database you want to add it to, then run "CREATE EXTENSION hstore". It should then be ready for you to use.
